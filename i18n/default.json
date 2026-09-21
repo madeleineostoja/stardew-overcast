@@ -1,0 +1,20 @@
+{
+  "config.enabled.name": "Enable cloud shadows",
+  "config.enabled.tooltip": "Fade cloud shadows in or out. Once disabled, Overcast stops updating and drawing clouds.",
+  "config.opacity.name": "Maximum opacity",
+  "config.opacity.tooltip": "The clear-day strength before weather, time of day, mask edges, and layer tuning reduce it.",
+  "config.speed.name": "Wind speed",
+  "config.speed.tooltip": "Multiplies Overcast's gentle built-in cloud drift speed.",
+  "config.scale.name": "Cloud scale",
+  "config.scale.tooltip": "Multiplies the varied size of every cloud mask.",
+  "config.enable-at-night.name": "Enable at night",
+  "config.enable-at-night.tooltip": "Keep weather-appropriate cloud shadows active overnight instead of fading them out at evening.",
+  "config.enable-during-rain.name": "Enable during rain",
+  "config.enable-during-rain.tooltip": "Show a reduced cloud-shadow effect during rain and obscuring wet weather.",
+  "config.enable-during-snow.name": "Enable during snow",
+  "config.enable-during-snow.tooltip": "Show a reduced cloud-shadow effect during snow, blizzards, and rain-snow mixtures.",
+  "config.enable-during-storms.name": "Enable during storms",
+  "config.enable-during-storms.tooltip": "Show a reduced cloud-shadow effect during lightning and severe weather.",
+  "config.second-layer-enabled.name": "Enable second layer",
+  "config.second-layer-enabled.tooltip": "Add a sparse, lower-strength secondary cloud layer for a little more variation."
+}

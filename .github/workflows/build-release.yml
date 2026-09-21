@@ -1,0 +1,83 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Overcast
+        uses: actions/checkout@v4
+
+      - name: Check out Stardew reference assemblies
+        uses: actions/checkout@v4
+        with:
+          repository: StardewModders/mod-reference-assemblies
+          ref: 5cf4916f20e137bbb09311ebdaa935cc70e6a2bc
+          path: mod-reference-assemblies
+
+      - name: Set up .NET 6
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Restore
+        run: dotnet restore Overcast.csproj -p:GamePath="$GITHUB_WORKSPACE/mod-reference-assemblies"
+
+      - name: Build release ZIP
+        run: dotnet build Overcast.csproj --configuration Release --no-restore -p:GamePath="$GITHUB_WORKSPACE/mod-reference-assemblies" -p:EnableModDeploy=false
+
+      - name: Run policy tests
+        run: dotnet test Overcast.Tests/Overcast.Tests.csproj --configuration Release
+
+      - name: Verify release version on tags
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          project = Path("Overcast.csproj").read_text()
+          manifest = Path("manifest.json").read_text()
+          version = re.search(r"<Version>([^<]+)</Version>", project).group(1)
+          if manifest.find('"Version": "%ProjectVersion%"') == -1:
+              raise SystemExit("manifest version must use the project version token")
+          if os.environ["TAG"] != f"v{version}":
+              raise SystemExit(f"tag {os.environ['TAG']} does not match project/manifest version {version}")
+          PY
+
+      - name: Upload install-ready ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Overcast-release
+          path: bin/**/*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release ZIP
+        uses: actions/download-artifact@v4
+        with:
+          name: Overcast-release
+          path: release
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/**/*.zip

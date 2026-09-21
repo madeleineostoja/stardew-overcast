@@ -1,0 +1,10 @@
+{
+  "Name": "Overcast",
+  "Author": "heyitsmads",
+  "Version": "%ProjectVersion%",
+  "Description": "Subtle, drifting cloud shadows for outdoor locations.",
+  "UniqueID": "heyitsmads.Overcast",
+  "EntryDll": "Overcast.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": []
+}
