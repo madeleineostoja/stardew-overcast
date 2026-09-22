@@ -7,7 +7,7 @@ internal static class PopulationRules
 
     public static int GetTarget(WorldBounds field, float globalScale, float density, bool secondary)
     {
-        const float baseScale = 0.72f;
+        const float baseScale = 0.85f;
         var approximateCloudArea = 1536f * 1024f * baseScale * baseScale * globalScale * globalScale;
         var ratio = secondary ? 0.24f : 0.68f;
         var cap = secondary ? SecondaryCap : PrimaryCap;

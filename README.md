@@ -24,9 +24,9 @@ Invalid manually edited numeric values are clamped to safe ranges when the mod l
 | Option | Default | Description |
 | --- | --- | --- |
 | `Enabled` | `true` | Master switch. Fades out before all cloud simulation and drawing stop. |
-| `Opacity` | `0.10` | Maximum clear-day shadow opacity; time, weather, mask edges, and layer tuning reduce it further. Range: `0.00`–`0.25`. |
-| `Speed` | `1.0` | Multiplies the built-in gentle wind speed. Range: `0.10`–`3.00`. |
-| `Scale` | `1.0` | Multiplies each cloud's varied size. Range: `0.50`–`1.75`. |
+| `Opacity` | `0.12` | Maximum clear-day shadow opacity; time, weather, mask edges, and layer tuning reduce it further. Range: `0.00`–`0.50`. |
+| `Speed` | `1.0` | Multiplies the built-in gentle wind speed. Range: `0.00`–`2.00`. |
+| `Scale` | `1.0` | Multiplies each cloud's varied size. Range: `0.50`–`1.50`. |
 | `EnableAtNight` | `false` | Retains the weather-appropriate effect overnight instead of fading it out after evening. |
 | `EnableDuringRain` | `false` | Enables a reduced effect for rain-like and obscuring wet weather. |
 | `EnableDuringSnow` | `false` | Enables a reduced effect for snow, blizzards, and rain/snow mixtures. |

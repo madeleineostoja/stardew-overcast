@@ -19,7 +19,7 @@ internal sealed class ModEntry : Mod
     private bool weatherWondersInstalled;
     private float transition;
     private float secondaryTransition = 1f;
-    private float displayedOpacity = 0.1f;
+    private float displayedOpacity = 0.12f;
     private float displayedWeatherOpacity = 1f;
     private float displayedScale = 1f;
     private float displayedSpeed = 1f;
@@ -60,9 +60,13 @@ internal sealed class ModEntry : Mod
         if (!e.IsLocalPlayer)
             return;
 
-        // A new location must never receive clouds from the old location while it fades in.
+        // A new location must never receive clouds from the old location.
         population?.Clear();
-        transition = 0f;
+        var modifiers = GetWeatherModifiers(e.NewLocation);
+        displayedWeatherOpacity = modifiers.Opacity;
+        transition = config.Enabled && IsEligible(e.NewLocation) && modifiers.IsAllowed
+            ? GetTimeFactor()
+            : 0f;
         fieldResetRequested = true;
         resetAfterFade = false;
     }
@@ -301,9 +305,9 @@ internal sealed class ModEntry : Mod
         });
 
         AddBool(api, "enabled", () => config.Enabled, value => config.Enabled = value);
-        AddNumber(api, "opacity", () => config.Opacity, value => config.Opacity = value, 0f, 0.25f, 0.01f);
-        AddNumber(api, "speed", () => config.Speed, value => config.Speed = value, 0.1f, 3f, 0.05f);
-        AddNumber(api, "scale", () => config.Scale, value => config.Scale = value, 0.5f, 1.75f, 0.05f);
+        AddNumber(api, "opacity", () => config.Opacity, value => config.Opacity = value, 0f, 0.5f, 0.01f);
+        AddNumber(api, "speed", () => config.Speed, value => config.Speed = value, 0f, 2f, 0.05f);
+        AddNumber(api, "scale", () => config.Scale, value => config.Scale = value, 0.5f, 1.5f, 0.05f);
         AddBool(api, "enable-at-night", () => config.EnableAtNight, value => config.EnableAtNight = value);
         AddBool(api, "enable-during-rain", () => config.EnableDuringRain, value => config.EnableDuringRain = value);
         AddBool(api, "enable-during-snow", () => config.EnableDuringSnow, value => config.EnableDuringSnow = value);

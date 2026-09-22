@@ -10,14 +10,14 @@ public sealed class PolicyTests
     {
         var config = new ModConfig
         {
-            Opacity = float.NaN,
+            Opacity = 9f,
             Speed = 9f,
-            Scale = 0.1f,
+            Scale = float.NaN,
         };
 
         Assert.True(config.Normalize());
-        Assert.Equal(0f, config.Opacity);
-        Assert.Equal(3f, config.Speed);
+        Assert.Equal(0.5f, config.Opacity);
+        Assert.Equal(2f, config.Speed);
         Assert.Equal(0.5f, config.Scale);
     }
 
