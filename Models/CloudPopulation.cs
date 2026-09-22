@@ -8,7 +8,7 @@ internal sealed class CloudPopulation
     // This exceeds the largest mask at the maximum supported scale, so new edge clouds stay offscreen.
     private const float Padding = 2800f;
     private const float BaseScale = 0.85f;
-    private static readonly Vector2 BaseWind = new(8.25f, 2.75f);
+    private static readonly Vector2 BaseWind = new Vector2(3f, 1f) * 3.3f;
 
     private readonly List<Texture2D> textures;
     private readonly List<Cloud> clouds = new();
@@ -130,15 +130,15 @@ internal sealed class CloudPopulation
         Vector2 position;
         if (visibleArea is { } visible)
         {
-            position = FindSpacedPosition(visible, width, height, globalScale);
+            position = FindSpacedPosition(visible, width, height, globalScale, secondary);
         }
         else if (initial)
         {
-            position = FindSpacedPosition(field, width, height, globalScale);
+            position = FindSpacedPosition(field, width, height, globalScale, secondary);
         }
         else if (exposedBand is { } band)
         {
-            position = FindSpacedPosition(band, width, height, globalScale);
+            position = FindSpacedPosition(band, width, height, globalScale, secondary);
         }
         else
         {
@@ -161,23 +161,32 @@ internal sealed class CloudPopulation
         return new Cloud(texture, position, variation, random.Next(3) == 0, BaseWind * speedVariation * layerVelocity, secondary);
     }
 
-    private Vector2 FindSpacedPosition(WorldBounds area, float width, float height, float globalScale)
+    private Vector2 FindSpacedPosition(WorldBounds area, float width, float height, float globalScale, bool secondary)
     {
-        var position = GetRandomPosition(area, width, height);
-        for (var attempt = 0; attempt < 4; attempt++)
+        var bestPosition = GetRandomPosition(area, width, height);
+        var fewestOverlaps = int.MaxValue;
+        var allowedOverlaps = secondary ? 1 : 0;
+        for (var attempt = 0; attempt < 8; attempt++)
         {
-            position = GetRandomPosition(area, width, height);
+            var position = attempt == 0 ? bestPosition : GetRandomPosition(area, width, height);
             var candidate = new WorldBounds(position.X, position.Y, width, height);
             var overlaps = 0;
             foreach (var cloud in clouds)
             {
-                if (candidate.Intersects(cloud.GetBounds(globalScale)) && ++overlaps > 1)
-                    break;
+                if (!secondary && cloud.IsSecondary)
+                    continue;
+                if (candidate.Intersects(cloud.GetBounds(globalScale)))
+                    overlaps++;
             }
-            if (overlaps <= 1)
+            if (overlaps <= allowedOverlaps)
                 return position;
+            if (overlaps < fewestOverlaps)
+            {
+                bestPosition = position;
+                fewestOverlaps = overlaps;
+            }
         }
-        return position;
+        return bestPosition;
     }
 
     private Vector2 GetRandomPosition(WorldBounds area, float width, float height)
