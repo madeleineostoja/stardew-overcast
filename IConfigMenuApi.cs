@@ -2,7 +2,7 @@ using StardewModdingAPI;
 
 namespace Overcast;
 
-internal interface IConfigMenuApi
+public interface IConfigMenuApi
 {
     void Register(IManifest mod, Action reset, Action save, bool titleScreenOnly = false);
 
