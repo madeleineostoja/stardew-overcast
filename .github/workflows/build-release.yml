@@ -9,29 +9,28 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
-      should_release: ${{ steps.version.outputs.should_release }}
+      should_release: ${{ steps.release.outputs.should_release }}
     steps:
       - name: Check out Overcast
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Detect a project version change
+      - name: Read project version
         id: version
-        env:
-          BEFORE: ${{ github.event.before }}
-          EVENT_NAME: ${{ github.event_name }}
-          REF: ${{ github.ref }}
         run: |
           python3 - <<'PY'
           import os
           import re
-          import subprocess
           from pathlib import Path
 
           project = Path("Overcast.csproj").read_text()
@@ -39,19 +38,53 @@ jobs:
           if not re.fullmatch(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?", version):
               raise SystemExit(f"project version is not a valid release version: {version!r}")
 
-          should_release = False
-          if os.environ["EVENT_NAME"] == "push" and os.environ["REF"] == "refs/heads/main":
-              try:
-                  previous = subprocess.check_output(
-                      ["git", "show", f'{os.environ["BEFORE"]}:Overcast.csproj'], text=True
-                  )
-                  previous_version = re.search(r"<Version>([^<]+)</Version>", previous).group(1)
-              except subprocess.CalledProcessError:
-                  previous_version = None
-              should_release = version != previous_version
-
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"version={version}\n")
+          PY
+
+      - name: Detect whether the current version needs a release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          from urllib.error import HTTPError
+          from urllib.parse import quote
+          from urllib.request import Request, urlopen
+
+          tag = quote(f'v{os.environ["VERSION"]}', safe="")
+          url = f'{os.environ["GITHUB_API_URL"]}/repos/{os.environ["GITHUB_REPOSITORY"]}/releases/tags/{tag}'
+          request = Request(url, headers={
+              "Accept": "application/vnd.github+json",
+              "Authorization": f'Bearer {os.environ["GH_TOKEN"]}',
+              "X-GitHub-Api-Version": "2022-11-28",
+          })
+          try:
+              with urlopen(request) as response:
+                  should_release = json.load(response)["draft"]
+          except HTTPError as error:
+              if error.code != 404:
+                  raise SystemExit(f"could not check for an existing release: HTTP {error.code}")
+              should_release = True
+
+          if should_release:
+              tag_commit = subprocess.run(
+                  ["git", "rev-list", "-n", "1", f'v{os.environ["VERSION"]}'],
+                  capture_output=True,
+                  text=True,
+                  check=False,
+              ).stdout.strip()
+              if tag_commit and tag_commit != os.environ["GITHUB_SHA"]:
+                  raise SystemExit(
+                      f'release tag points at {tag_commit}, not the current commit {os.environ["GITHUB_SHA"]}'
+                  )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               output.write(f"should_release={str(should_release).lower()}\n")
           PY
 
@@ -116,25 +149,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Check out Overcast
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create release tag
-        env:
-          TAG: v${{ needs.prepare-release.outputs.version }}
-        run: |
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            if [ "$(git rev-list -n 1 "$TAG")" != "$GITHUB_SHA" ]; then
-              echo "$TAG already exists for a different commit" >&2
-              exit 1
-            fi
-          else
-            git tag -a "$TAG" "$GITHUB_SHA" -m "Release $TAG"
-            git push origin "$TAG"
-          fi
-
       - name: Download release ZIP
         uses: actions/download-artifact@v4
         with:
