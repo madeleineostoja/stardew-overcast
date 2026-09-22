@@ -8,6 +8,7 @@ internal enum WeatherKind
     Rain,
     Snow,
     Storm,
+    Special,
 }
 
 internal readonly record struct WeatherState(
@@ -25,7 +26,7 @@ internal static class WeatherPolicy
         new Dictionary<string, WeatherKind>(StringComparer.Ordinal)
         {
             ["Kana.WeatherWonders_Cloudy"] = WeatherKind.Cloudy,
-            ["Kana.WeatherWonders_Heatwave"] = WeatherKind.Clear,
+            ["Kana.WeatherWonders_Heatwave"] = WeatherKind.Special,
             ["Kana.WeatherWonders_Drizzle"] = WeatherKind.Rain,
             ["Kana.WeatherWonders_Deluge"] = WeatherKind.Rain,
             ["Kana.WeatherWonders_AcidRain"] = WeatherKind.Rain,
@@ -40,11 +41,12 @@ internal static class WeatherPolicy
 
     public static WeatherKind Classify(WeatherState weather, bool weatherWondersInstalled)
     {
-        if (weatherWondersInstalled
-            && weather.Id is not null
-            && WeatherWonders.TryGetValue(weather.Id, out var knownKind))
+        if (weatherWondersInstalled && weather.Id is not null)
         {
-            return knownKind;
+            if (WeatherWonders.TryGetValue(weather.Id, out var knownKind))
+                return knownKind;
+            if (weather.Id.StartsWith("Kana.WeatherWonders_", StringComparison.Ordinal))
+                return WeatherKind.Special;
         }
 
         // Storm wins over every wet flag. Snow must win over rain for mixed weather.
@@ -66,6 +68,7 @@ internal static class WeatherPolicy
             WeatherKind.Rain => new WeatherModifiers(0.4f, 0.7f, 1.1f, config.EnableDuringRain),
             WeatherKind.Snow => new WeatherModifiers(0.35f, 0.65f, 0.8f, config.EnableDuringSnow),
             WeatherKind.Storm => new WeatherModifiers(0.3f, 0.55f, 1.35f, config.EnableDuringStorms),
+            WeatherKind.Special => new WeatherModifiers(0.3f, 0.6f, 0.85f, config.EnableDuringSpecialWeather),
             _ => new WeatherModifiers(1f, 1f, 1f, true),
         };
     }

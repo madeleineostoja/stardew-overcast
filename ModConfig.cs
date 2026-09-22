@@ -10,6 +10,7 @@ internal sealed class ModConfig
     public bool EnableDuringRain { get; set; }
     public bool EnableDuringSnow { get; set; }
     public bool EnableDuringStorms { get; set; }
+    public bool EnableDuringSpecialWeather { get; set; }
     public bool SecondLayerEnabled { get; set; } = true;
 
     public bool Normalize()

@@ -47,6 +47,35 @@ public sealed class PolicyTests
     }
 
     [Fact]
+    public void Heavy_weather_wonders_effects_are_disabled_by_default()
+    {
+        var config = new ModConfig();
+        var heatwave = new WeatherState("Kana.WeatherWonders_Heatwave", false, false, false, false);
+        var futureEffect = new WeatherState("Kana.WeatherWonders_FutureEffect", false, false, false, false);
+
+        Assert.Equal(WeatherKind.Special, WeatherPolicy.Classify(heatwave, true));
+        Assert.Equal(WeatherKind.Special, WeatherPolicy.Classify(futureEffect, true));
+        Assert.False(WeatherPolicy.GetModifiers(WeatherKind.Special, config).IsAllowed);
+
+        config.EnableDuringSpecialWeather = true;
+        Assert.True(WeatherPolicy.GetModifiers(WeatherKind.Special, config).IsAllowed);
+    }
+
+    [Fact]
+    public void Population_density_changes_targets_before_the_hard_cap()
+    {
+        var typicalField = new WorldBounds(0, 0, 6880, 6320);
+
+        var storm = PopulationRules.GetTarget(typicalField, 1f, 0.55f, false);
+        var clear = PopulationRules.GetTarget(typicalField, 1f, 1f, false);
+        var cloudy = PopulationRules.GetTarget(typicalField, 1f, 1.3f, false);
+
+        Assert.True(storm < clear);
+        Assert.True(clear < cloudy);
+        Assert.Equal(PopulationRules.PrimaryCap, cloudy);
+    }
+
+    [Fact]
     public void Population_target_stays_within_the_stratum_hard_cap()
     {
         var enormousField = new WorldBounds(0, 0, 100_000, 100_000);

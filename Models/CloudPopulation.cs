@@ -7,7 +7,8 @@ internal sealed class CloudPopulation
 {
     // This exceeds the largest mask at the maximum supported scale, so new edge clouds stay offscreen.
     private const float Padding = 2800f;
-    private const float BaseScale = 0.85f;
+    private const float AssetResolutionScale = 0.75f;
+    private const float BaseScale = 0.85f / AssetResolutionScale;
     private static readonly Vector2 BaseWind = new Vector2(3f, 1f) * 3.3f;
 
     private readonly List<Texture2D> textures;

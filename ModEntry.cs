@@ -11,10 +11,12 @@ namespace Overcast;
 internal sealed class ModEntry : Mod
 {
     private const float FadeSeconds = 1.5f;
+    private readonly Dictionary<string, WeatherKind> dailyWeather = new(StringComparer.Ordinal);
     private ModConfig config = null!;
     private CloudPopulation? population;
     private bool assetsFailed;
     private bool fieldResetRequested = true;
+    private bool simulationStopped = true;
     private bool resetAfterFade;
     private bool weatherWondersInstalled;
     private float transition;
@@ -46,12 +48,14 @@ internal sealed class ModEntry : Mod
 
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
     {
-        fieldResetRequested = true;
+        dailyWeather.Clear();
+        StopSimulation();
         transition = 0f;
     }
 
     private void OnDayStarted(object? sender, DayStartedEventArgs e)
     {
+        dailyWeather.Clear();
         resetAfterFade = true;
     }
 
@@ -61,13 +65,12 @@ internal sealed class ModEntry : Mod
             return;
 
         // A new location must never receive clouds from the old location.
-        population?.Clear();
+        StopSimulation();
         var modifiers = GetWeatherModifiers(e.NewLocation);
         displayedWeatherOpacity = modifiers.Opacity;
         transition = config.Enabled && IsEligible(e.NewLocation) && modifiers.IsAllowed
             ? GetTimeFactor()
             : 0f;
-        fieldResetRequested = true;
         resetAfterFade = false;
     }
 
@@ -86,58 +89,37 @@ internal sealed class ModEntry : Mod
         secondaryTransition = MoveTowards(secondaryTransition, config.SecondLayerEnabled ? 1f : 0f, elapsedSeconds);
 
         var location = Game1.currentLocation;
-        var eligible = IsEligible(location);
-        var modifiers = GetWeatherModifiers(location);
-        displayedWeatherOpacity = SmoothTo(displayedWeatherOpacity, modifiers.Opacity, elapsedSeconds);
-        var targetTransition = config.Enabled && eligible && modifiers.IsAllowed && !resetAfterFade
-            ? GetTimeFactor()
-            : 0f;
-        transition = MoveTowards(transition, targetTransition, elapsedSeconds);
-
-        if (!eligible)
+        if (!IsEligible(location))
         {
-            population?.Clear();
+            transition = MoveTowards(transition, 0f, elapsedSeconds);
+            resetAfterFade = false;
+            StopSimulation();
             return;
         }
+
+        var modifiers = GetWeatherModifiers(location);
+        displayedWeatherOpacity = SmoothTo(displayedWeatherOpacity, modifiers.Opacity, elapsedSeconds);
+        var timeFactor = GetTimeFactor();
+        var wantsEffect = config.Enabled && modifiers.IsAllowed && !resetAfterFade && timeFactor > 0f;
+        transition = MoveTowards(transition, wantsEffect ? timeFactor : 0f, elapsedSeconds);
 
         if (resetAfterFade && transition <= 0.001f)
         {
-            fieldResetRequested = true;
+            StopSimulation();
             resetAfterFade = false;
-        }
-
-        if (!config.Enabled)
-        {
-            if (transition <= 0.001f)
-            {
-                population?.Clear();
-                fieldResetRequested = true;
-            }
-            else
-            {
-                population?.Advance(elapsedSeconds, displayedSpeed * modifiers.Speed);
-            }
-            return;
+            wantsEffect = config.Enabled && modifiers.IsAllowed && timeFactor > 0f;
         }
 
         if (assetsFailed || population is null || location is null)
             return;
-        if (!modifiers.IsAllowed)
+
+        var effectIsVisible = displayedOpacity * displayedWeatherOpacity * transition > 0.001f;
+        if (!wantsEffect || config.Opacity <= 0f)
         {
-            if (transition <= 0.001f)
-            {
-                population.Clear();
-                fieldResetRequested = true;
-            }
-            else
-            {
+            if (effectIsVisible)
                 population.Advance(elapsedSeconds, displayedSpeed * modifiers.Speed);
-            }
-            return;
-        }
-        if (resetAfterFade)
-        {
-            population.Advance(elapsedSeconds, displayedSpeed * modifiers.Speed);
+            else
+                StopSimulation();
             return;
         }
 
@@ -146,6 +128,7 @@ internal sealed class ModEntry : Mod
         {
             population.Reset(GetPopulationSeed(location), viewport, displayedScale, modifiers.Density, config.SecondLayerEnabled);
             fieldResetRequested = false;
+            simulationStopped = false;
         }
         else if (population.NeedsReset(viewport))
         {
@@ -165,7 +148,8 @@ internal sealed class ModEntry : Mod
 
     private void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
     {
-        if (transition <= 0.001f || population is null || !IsEligible(Game1.currentLocation))
+        var globalAlpha = displayedOpacity * displayedWeatherOpacity * transition;
+        if (globalAlpha <= 0.001f || population is null || !IsEligible(Game1.currentLocation))
             return;
 
         var viewport = GetViewportBounds();
@@ -176,7 +160,7 @@ internal sealed class ModEntry : Mod
             if (!bounds.Intersects(viewport))
                 continue;
 
-            var alpha = displayedOpacity * displayedWeatherOpacity * transition * (cloud.IsSecondary ? 0.35f * secondaryTransition : 1f);
+            var alpha = globalAlpha * (cloud.IsSecondary ? 0.35f * secondaryTransition : 1f);
             if (alpha <= 0.001f)
                 continue;
 
@@ -198,14 +182,30 @@ internal sealed class ModEntry : Mod
         if (location is null)
             return new WeatherModifiers(0f, 0f, 0f, false);
 
-        var weather = location.GetWeather();
-        var state = new WeatherState(
-            weather.Weather,
-            location.IsRainingHere() || location.IsGreenRainingHere(),
-            location.IsSnowingHere(),
-            location.IsLightningHere(),
-            location.IsDebrisWeatherHere());
-        return WeatherPolicy.GetModifiers(WeatherPolicy.Classify(state, weatherWondersInstalled), config);
+        var key = location.NameOrUniqueName;
+        if (!dailyWeather.TryGetValue(key, out var kind))
+        {
+            var weather = location.GetWeather();
+            var state = new WeatherState(
+                weather.Weather,
+                location.IsRainingHere() || location.IsGreenRainingHere(),
+                location.IsSnowingHere(),
+                location.IsLightningHere(),
+                location.IsDebrisWeatherHere());
+            kind = WeatherPolicy.Classify(state, weatherWondersInstalled);
+            dailyWeather[key] = kind;
+        }
+        return WeatherPolicy.GetModifiers(kind, config);
+    }
+
+    private void StopSimulation()
+    {
+        if (simulationStopped)
+            return;
+
+        population?.Clear();
+        simulationStopped = true;
+        fieldResetRequested = true;
     }
 
     private static bool IsEligible(GameLocation? location)
@@ -312,6 +312,7 @@ internal sealed class ModEntry : Mod
         AddBool(api, "enable-during-rain", () => config.EnableDuringRain, value => config.EnableDuringRain = value);
         AddBool(api, "enable-during-snow", () => config.EnableDuringSnow, value => config.EnableDuringSnow = value);
         AddBool(api, "enable-during-storms", () => config.EnableDuringStorms, value => config.EnableDuringStorms = value);
+        AddBool(api, "enable-during-special-weather", () => config.EnableDuringSpecialWeather, value => config.EnableDuringSpecialWeather = value);
         AddBool(api, "second-layer-enabled", () => config.SecondLayerEnabled, value => config.SecondLayerEnabled = value);
     }
 

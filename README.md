@@ -31,6 +31,7 @@ Invalid manually edited numeric values are clamped to safe ranges when the mod l
 | `EnableDuringRain` | `false` | Enables a reduced effect for rain-like and obscuring wet weather. |
 | `EnableDuringSnow` | `false` | Enables a reduced effect for snow, blizzards, and rain/snow mixtures. |
 | `EnableDuringStorms` | `false` | Enables a reduced effect for lightning and severe weather. |
+| `EnableDuringSpecialWeather` | `false` | Enables a reduced effect for heatwaves and unrecognized Weather Wonders effects. |
 | `SecondLayerEnabled` | `true` | Enables a sparse, lower-opacity secondary stratum. |
 
 Changes from GMCM apply live and are saved through SMAPI.
@@ -39,13 +40,13 @@ Changes from GMCM apply live and are saved through SMAPI.
 
 Overcast automatically detects Weather Wonders (`Kana.WeatherWonders`) without requiring it. Its known weather IDs use these policies:
 
-- **Cloudy:** more clouds at lower contrast.
-- **Heatwave:** clear-weather behaviour.
+- **Cloudy:** more clouds at lower contrast. This remains enabled by default because Weather Wonders only adds an outdoor tint for this weather.
+- **Heatwave:** a reduced effect controlled by `EnableDuringSpecialWeather`.
 - **Drizzle, Deluge, Acid Rain, Muddy Rain, and Mist:** reduced rain behaviour, controlled by `EnableDuringRain`.
 - **Blizzard and Rain/Snow Mix:** reduced snow behaviour, controlled by `EnableDuringSnow`.
 - **Dry Lightning, Hailstorm, and Sandstorm:** reduced storm behaviour, controlled by `EnableDuringStorms`.
 
-Unknown custom Weather Wonders IDs fall back to Stardew's location-specific rain, snow, lightning, debris/wind, and green-rain flags; otherwise they use clear-weather behaviour. Storm takes precedence over rain, and snow takes precedence over rain for mixed weather.
+Weather Wonders effects with their own fog, precipitation, distortion, or other potentially expensive visuals are therefore disabled by default. Unknown Weather Wonders weather IDs are also disabled unless `EnableDuringSpecialWeather` is selected. Other unknown custom weather IDs fall back to Stardew's location-specific rain, snow, lightning, debris/wind, and green-rain flags; otherwise they use clear-weather behaviour. Storm takes precedence over rain, and snow takes precedence over rain for mixed weather.
 
 The mod deliberately has no external wind-vector API and no Realistic Wind Effects integration; both mods use their own visual wind behaviour. Nightshade, Immersive Lighting, recolours, and modded outdoor maps have no special compatibility code. Overcast draws on SMAPI's `RenderedWorld` layer, but SMAPI does not guarantee a fixed cross-mod callback ordering; any visual grading from another mod may therefore occur before or after this shade.
 
